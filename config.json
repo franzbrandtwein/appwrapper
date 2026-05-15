@@ -1,0 +1,11 @@
+{
+  "app_name": "Essen New Ages",
+  "package_name": "de.newages.essen",
+  "version": "1.0.0",
+  "url": "https://essen.new-ages.de/",
+  "orientation": "portrait",
+  "status_bar_color": "#1a1a2e",
+  "fullscreen": false,
+  "allow_navigation": true,
+  "user_agent_suffix": "AppWrapper/1.0"
+}

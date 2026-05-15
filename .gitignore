@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# PySide6 / Qt Android deploy
+.buildozer/
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/
+pysidedeploy.spec
+*.keystore
+!debug.keystore
+
+# APK outputs (not committed, available as CI artifacts)
+*.apk
+*.aab
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

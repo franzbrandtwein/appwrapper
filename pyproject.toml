@@ -1,0 +1,25 @@
+[project]
+name = "appwrapper"
+version = "1.0.0"
+description = "Configurable Android PWA wrapper built with Python and PySide6"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6.0",
+]
+
+[tool.pyside6-android-deploy]
+# Main entry point
+main_file = "main.py"
+# Android package identifier (overridden by config.json at runtime)
+android_package_name = "de.newages.essen"
+# Extra Qt modules required
+qt_modules = ["QtWebView", "QtQuick", "QtQuickControls2"]
+# Python modules to bundle
+python_packages = []
+# Local modules/files to include in the package
+local_modules = ["config.json", "main.qml"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends.legacy:build"
