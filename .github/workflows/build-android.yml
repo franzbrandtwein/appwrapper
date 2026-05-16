@@ -45,6 +45,23 @@ jobs:
       - name: Generate buildozer.spec from config.json
         run: python3 generate_spec.py
 
+      # Accept all Android SDK licenses and pre-install required packages
+      # using the SDK that is already on the GitHub Actions runner
+      - name: Accept Android SDK licenses & install build tools
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "platform-tools"
+
+      # Install NDK via sdkmanager (runner SDK, avoids Buildozer's interactive prompt)
+      - name: Install Android NDK 25.2
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKMANAGER" "ndk;25.2.9519653"
+
       - name: Cache Buildozer global directory
         uses: actions/cache@v4
         with:
@@ -59,15 +76,13 @@ jobs:
           key: buildozer-project-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
           restore-keys: buildozer-project-${{ runner.os }}-
 
-      - name: Ensure Java is in PATH for Buildozer
-        run: |
-          JAVA_BIN=$(dirname $(readlink -f $(which javac 2>/dev/null || find /usr/lib/jvm -name javac 2>/dev/null | head -1)))
-          echo "JAVA_HOME=$(dirname $JAVA_BIN)" >> $GITHUB_ENV
-          echo "$JAVA_BIN" >> $GITHUB_PATH
-          echo "Java bin: $JAVA_BIN"
-          javac -version
-
       - name: Build APK (debug)
+        env:
+          # Point Buildozer to the pre-installed (and licensed) SDK/NDK
+          ANDROIDSDK: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROIDNDK: ${{ env.ANDROID_SDK_ROOT }}/ndk/25.2.9519653
+          ANDROIDAPI: "34"
+          ANDROIDMINAPI: "24"
         run: |
           buildozer -v android debug 2>&1 | tee build.log
           echo "=== Build finished ==="
