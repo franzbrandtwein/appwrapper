@@ -59,9 +59,15 @@ jobs:
           key: buildozer-project-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
           restore-keys: buildozer-project-${{ runner.os }}-
 
+      - name: Ensure Java is in PATH for Buildozer
+        run: |
+          JAVA_BIN=$(dirname $(readlink -f $(which javac 2>/dev/null || find /usr/lib/jvm -name javac 2>/dev/null | head -1)))
+          echo "JAVA_HOME=$(dirname $JAVA_BIN)" >> $GITHUB_ENV
+          echo "$JAVA_BIN" >> $GITHUB_PATH
+          echo "Java bin: $JAVA_BIN"
+          javac -version
+
       - name: Build APK (debug)
-        env:
-          JAVA_HOME: /usr/lib/jvm/temurin-17-amd64
         run: |
           buildozer -v android debug 2>&1 | tee build.log
           echo "=== Build finished ==="
