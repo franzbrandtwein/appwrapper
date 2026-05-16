@@ -45,22 +45,34 @@ jobs:
       - name: Generate buildozer.spec from config.json
         run: python3 generate_spec.py
 
-      # Accept all Android SDK licenses and pre-install required packages
-      # using the SDK that is already on the GitHub Actions runner
-      - name: Accept Android SDK licenses & install build tools
+      # The runner has Android SDK pre-installed at $ANDROID_SDK_ROOT.
+      # ${{ env.VAR }} only reads workflow-level vars, NOT system env vars.
+      # We must use a shell step to export system vars into $GITHUB_ENV
+      # so they persist as ANDROIDSDK/ANDROIDNDK for the build step.
+      - name: Configure Android SDK & accept licenses
         run: |
-          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses || true
+          SDK="$ANDROID_SDK_ROOT"
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          echo "SDK root: $SDK"
+
+          # Export to GITHUB_ENV so all subsequent steps see ANDROIDSDK
+          echo "ANDROIDSDK=$SDK" >> "$GITHUB_ENV"
+
+          # Accept all licenses non-interactively
+          yes | "$SDKMANAGER" --licenses 2>/dev/null || true
+
+          # Install required packages
           "$SDKMANAGER" \
             "platforms;android-34" \
             "build-tools;34.0.0" \
+            "ndk;25.2.9519653" \
             "platform-tools"
 
-      # Install NDK via sdkmanager (runner SDK, avoids Buildozer's interactive prompt)
-      - name: Install Android NDK 25.2
-        run: |
-          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          "$SDKMANAGER" "ndk;25.2.9519653"
+          # Export NDK path
+          NDK_PATH="$SDK/ndk/25.2.9519653"
+          echo "ANDROIDNDK=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "NDK at: $NDK_PATH"
+          ls "$NDK_PATH" | head -5
 
       - name: Cache Buildozer global directory
         uses: actions/cache@v4
@@ -78,12 +90,11 @@ jobs:
 
       - name: Build APK (debug)
         env:
-          # Point Buildozer to the pre-installed (and licensed) SDK/NDK
-          ANDROIDSDK: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROIDNDK: ${{ env.ANDROID_SDK_ROOT }}/ndk/25.2.9519653
           ANDROIDAPI: "34"
           ANDROIDMINAPI: "24"
         run: |
+          echo "ANDROIDSDK=$ANDROIDSDK"
+          echo "ANDROIDNDK=$ANDROIDNDK"
           buildozer -v android debug 2>&1 | tee build.log
           echo "=== Build finished ==="
           find . -name "*.apk" | head -5
