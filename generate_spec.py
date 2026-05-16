@@ -1,8 +1,15 @@
 """
 Generate buildozer.spec from config.json.
 Run this before building or let the CI pipeline run it automatically.
+
+Environment variables (set automatically on GitHub Actions runner):
+  ANDROIDSDK  - path to pre-installed Android SDK (e.g. /usr/local/lib/android/sdk)
+  ANDROIDNDK  - path to pre-installed NDK
+If set, these are written into the spec so Buildozer uses the already-licensed
+SDK instead of downloading its own.
 """
 import json
+import os
 from pathlib import Path
 
 
@@ -20,6 +27,18 @@ def main():
     version = config.get("version", "1.0.0")
     app_name = config["app_name"]
 
+    # If a pre-licensed SDK is available (CI), pin it in the spec so Buildozer
+    # won't download its own SDK and hit an interactive license prompt.
+    sdk_path = os.environ.get("ANDROIDSDK", "")
+    ndk_path = os.environ.get("ANDROIDNDK", "")
+    sdk_lines = ""
+    if sdk_path:
+        sdk_lines += f"\nandroid.sdk_path = {sdk_path}"
+        print(f"  → using pre-installed SDK: {sdk_path}")
+    if ndk_path:
+        sdk_lines += f"\nandroid.ndk_path = {ndk_path}"
+        print(f"  → using pre-installed NDK: {ndk_path}")
+
     spec = f"""[app]
 title = {app_name}
 package.name = {pkg_name}
@@ -36,11 +55,12 @@ android.permissions = INTERNET,ACCESS_NETWORK_STATE
 android.api = 34
 android.minapi = 24
 android.ndk = 25b
+android.build_tools_version = 34.0.0
 android.accept_sdk_license = True
 android.archs = arm64-v8a
 android.allow_backup = False
 android.enable_androidx = True
-android.release_artifact = apk
+android.release_artifact = apk{sdk_lines}
 
 [buildozer]
 log_level = 2

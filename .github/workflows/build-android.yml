@@ -42,37 +42,39 @@ jobs:
           pip install --upgrade pip
           pip install "buildozer>=1.5" "cython<3.0"
 
-      - name: Generate buildozer.spec from config.json
-        run: python3 generate_spec.py
-
-      # The runner has Android SDK pre-installed at $ANDROID_SDK_ROOT.
-      # ${{ env.VAR }} only reads workflow-level vars, NOT system env vars.
-      # We must use a shell step to export system vars into $GITHUB_ENV
-      # so they persist as ANDROIDSDK/ANDROIDNDK for the build step.
+      # Must run BEFORE generate_spec.py so ANDROIDSDK is available to it.
+      # ${{ env.VAR }} only reads workflow-level vars; system env vars must be
+      # exported to GITHUB_ENV via a shell step.
       - name: Configure Android SDK & accept licenses
         run: |
           SDK="$ANDROID_SDK_ROOT"
           SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
           echo "SDK root: $SDK"
 
-          # Export to GITHUB_ENV so all subsequent steps see ANDROIDSDK
-          echo "ANDROIDSDK=$SDK" >> "$GITHUB_ENV"
-
           # Accept all licenses non-interactively
           yes | "$SDKMANAGER" --licenses 2>/dev/null || true
 
-          # Install required packages
+          # Install exact packages we need (pin build-tools version to 34.0.0
+          # to avoid Buildozer auto-requesting 37.0.0 and re-prompting)
           "$SDKMANAGER" \
             "platforms;android-34" \
             "build-tools;34.0.0" \
             "ndk;25.2.9519653" \
             "platform-tools"
 
-          # Export NDK path
-          NDK_PATH="$SDK/ndk/25.2.9519653"
-          echo "ANDROIDNDK=$NDK_PATH" >> "$GITHUB_ENV"
-          echo "NDK at: $NDK_PATH"
-          ls "$NDK_PATH" | head -5
+          # Export paths to GITHUB_ENV — these persist for ALL subsequent steps.
+          # generate_spec.py reads ANDROIDSDK/ANDROIDNDK and writes them into
+          # buildozer.spec so Buildozer uses this already-licensed SDK.
+          echo "ANDROIDSDK=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROIDNDK=$SDK/ndk/25.2.9519653" >> "$GITHUB_ENV"
+          echo "Exported ANDROIDSDK=$SDK"
+          echo "Exported ANDROIDNDK=$SDK/ndk/25.2.9519653"
+
+      - name: Generate buildozer.spec from config.json
+        run: |
+          python3 generate_spec.py
+          echo "--- generated spec [android] section ---"
+          grep -A 20 '^\[android\]' buildozer.spec
 
       - name: Cache Buildozer global directory
         uses: actions/cache@v4
