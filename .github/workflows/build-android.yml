@@ -45,27 +45,7 @@ jobs:
       - name: Generate buildozer.spec from config.json
         run: python3 generate_spec.py
 
-      # Buildozer always downloads its own old SDK
-      # (commandlinetools-linux-6514223) to ~/.buildozer regardless of env vars
-      # or spec settings. Its sdkmanager prompts interactively for licenses.
-      #
-      # Fix: pre-create the license files at the EXACT path Buildozer uses.
-      # The SDK zip extracts into tools/ — it does NOT contain a licenses/
-      # directory, so our files survive the unzip intact.
-      - name: Pre-create Android SDK license files
-        run: |
-          mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
-          printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n' \
-            > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          printf '\n84831b9409646a918e30573bab4c9c91346d8abd\n' \
-            > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-          printf '\n33b6ADC7-D4-11d0-A37A-16FE-92B7-6D1F-B33C\n' \
-            > ~/.buildozer/android/platform/android-sdk/licenses/intel-android-extra-license
-          printf '\nd975f751698a2b18c8f5e6b58c40c8e674c5dbca\n' \
-            > ~/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
-          echo "License files written:"
-          ls -la ~/.buildozer/android/platform/android-sdk/licenses/
-
+      # Restore cache BEFORE license setup so our license files aren't overwritten
       - name: Cache Buildozer global directory
         uses: actions/cache@v4
         with:
@@ -79,6 +59,35 @@ jobs:
           path: .buildozer
           key: buildozer-project-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
           restore-keys: buildozer-project-${{ runner.os }}-
+
+      # AFTER cache restore: fix any corrupt/incomplete cached SDK and ensure
+      # license files exist so Buildozer's old sdkmanager doesn't prompt.
+      - name: Prepare Buildozer SDK directory and license files
+        run: |
+          SDK_DIR=~/.buildozer/android/platform/android-sdk
+
+          # If the SDK directory exists but lacks sdkmanager, the cache holds a
+          # partial install (e.g. only our pre-created licenses/ dir from a
+          # previous failed run). Remove it so Buildozer re-downloads fresh.
+          if [ -d "$SDK_DIR" ] && [ ! -f "$SDK_DIR/tools/bin/sdkmanager" ]; then
+            echo "Incomplete SDK found at $SDK_DIR – removing for fresh download"
+            rm -rf "$SDK_DIR"
+          fi
+
+          # Pre-create the licenses dir. When Buildozer downloads and unzips
+          # commandlinetools, the zip only contains tools/ – it does NOT touch
+          # licenses/, so our files survive the extraction intact.
+          mkdir -p "$SDK_DIR/licenses"
+          printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n' \
+            > "$SDK_DIR/licenses/android-sdk-license"
+          printf '\n84831b9409646a918e30573bab4c9c91346d8abd\n' \
+            > "$SDK_DIR/licenses/android-sdk-preview-license"
+          printf '\n33b6ADC7-D4-11d0-A37A-16FE-92B7-6D1F-B33C\n' \
+            > "$SDK_DIR/licenses/intel-android-extra-license"
+          echo "License files written to $SDK_DIR/licenses/"
+          ls -la "$SDK_DIR/licenses/"
+          echo "SDK dir state:"
+          ls "$SDK_DIR/" 2>/dev/null || echo "(empty – fresh download will happen)"
 
       - name: Build APK (debug)
         run: |
