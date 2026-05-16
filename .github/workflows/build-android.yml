@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -57,8 +58,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .buildozer
-          key: buildozer-project-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
-          restore-keys: buildozer-project-${{ runner.os }}-
+          key: buildozer-project-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('buildozer.spec', 'main.py') }}
+          restore-keys: buildozer-project-${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-
 
       # AFTER cache restore: ensure SDK is present with sdkmanager binary AND
       # license files pre-accepted so Buildozer's sdkmanager never prompts.
