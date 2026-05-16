@@ -58,13 +58,12 @@ jobs:
         run: |
           pip install aqtinstall
           mkdir -p "${{ env.QT_BASE_DIR }}"
-          # Android arm64 with WebView
+          # Android arm64 — qtwebview is Android/iOS only
           python3 -m aqt install-qt linux android ${{ env.QT_VERSION }} android_arm64_v8a \
             -m qtwebview \
             -O "${{ env.QT_BASE_DIR }}"
-          # Linux desktop host tools
+          # Linux desktop host tools — qtwebview does NOT exist on desktop
           python3 -m aqt install-qt linux desktop ${{ env.QT_VERSION }} gcc_64 \
-            -m qtwebview \
             -O "${{ env.QT_BASE_DIR }}"
 
       # ── PySide6 (runtime for deploy tool + wheel files for bundling) ─────────
