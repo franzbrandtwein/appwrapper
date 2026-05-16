@@ -67,8 +67,11 @@ jobs:
             -O "${{ env.QT_BASE_DIR }}"
 
       # ── PySide6 (runtime for deploy tool + wheel files for bundling) ─────────
-      - name: Install PySide6 deploy tools
+      # pyside6-android-deploy requires a virtualenv (prompts interactively otherwise)
+      - name: Create virtualenv and install PySide6
         run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
           pip install --upgrade pip
           pip install \
             "PySide6==${{ env.PYSIDE_VERSION }}" \
@@ -78,7 +81,6 @@ jobs:
         id: wheels
         run: |
           mkdir -p ./wheels
-          # Download manylinux wheels (used by pyside6-android-deploy for bundling)
           pip download "PySide6==${{ env.PYSIDE_VERSION }}" \
             --no-deps --only-binary=:all: \
             -d ./wheels
@@ -100,7 +102,7 @@ jobs:
           echo "package=$(python3 -c "import json; c=json.load(open('config.json')); print(c['package_name'])")" >> $GITHUB_OUTPUT
           echo "version=$(python3 -c "import json; c=json.load(open('config.json')); print(c['version'])")" >> $GITHUB_OUTPUT
 
-      # ── Generate spec file + run pyside6-android-deploy ──────────────────────
+      # ── Generate spec file + run pyside6-android-deploy inside venv ──────────
       - name: Build APK
         env:
           ANDROID_NDK_ROOT: "${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.ANDROID_NDK_VERSION }}"
@@ -110,7 +112,9 @@ jobs:
           SHIBOKEN_WHEEL: "${{ steps.wheels.outputs.shiboken }}"
           ANDROID_ARCH: "${{ env.ANDROID_ARCH }}"
           ANDROID_API_LEVEL: "${{ env.ANDROID_API_LEVEL }}"
-        run: python3 build_android.py
+        run: |
+          source .venv/bin/activate
+          python3 build_android.py
 
       # ── Sign & upload ─────────────────────────────────────────────────────────
       - name: Locate APK
