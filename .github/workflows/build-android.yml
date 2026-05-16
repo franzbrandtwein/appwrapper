@@ -62,8 +62,8 @@ jobs:
           python3 -m aqt install-qt linux android ${{ env.QT_VERSION }} android_arm64_v8a \
             -m qtwebview \
             -O "${{ env.QT_BASE_DIR }}"
-          # Linux desktop host tools — qtwebview does NOT exist on desktop
-          python3 -m aqt install-qt linux desktop ${{ env.QT_VERSION }} gcc_64 \
+          # Linux desktop host tools — arch for Qt 6.x is linux_gcc_64
+          python3 -m aqt install-qt linux desktop ${{ env.QT_VERSION }} linux_gcc_64 \
             -O "${{ env.QT_BASE_DIR }}"
 
       # ── PySide6 (runtime for deploy tool + wheel files for bundling) ─────────

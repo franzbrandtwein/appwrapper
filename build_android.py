@@ -23,7 +23,7 @@ def main():
     arch = os.environ.get("ANDROID_ARCH", "arm64-v8a")
     api_level = os.environ.get("ANDROID_API_LEVEL", "34")
 
-    qt_host = f"{qt_base}/{qt_version}/gcc_64"
+    qt_host = f"{qt_base}/{qt_version}/linux_gcc_64"
     qt_android = f"{qt_base}/{qt_version}/android_{arch.replace('-', '_')}"
 
     spec = configparser.ConfigParser()
