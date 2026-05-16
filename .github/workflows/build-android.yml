@@ -10,24 +10,16 @@ on:
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
-    env:
-      ANDROID_API_LEVEL: "34"
-      ANDROID_NDK_VERSION: "26.1.10909125"
-      QT_VERSION: "6.7.2"
-      PYSIDE_VERSION: "6.7.2"
-      PYTHON_VERSION: "3.11"
-      ANDROID_ARCH: "arm64-v8a"
-      QT_BASE_DIR: "${{ github.workspace }}/.qt"
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.11'
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -35,134 +27,82 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK & Build Tools
+      - name: Install system dependencies
         run: |
-          sdkmanager --sdk_root="${ANDROID_SDK_ROOT}" \
-            "ndk;${{ env.ANDROID_NDK_VERSION }}" \
-            "platforms;android-${{ env.ANDROID_API_LEVEL }}" \
-            "build-tools;${{ env.ANDROID_API_LEVEL }}.0.0"
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            git zip unzip \
+            autoconf libtool pkg-config \
+            zlib1g-dev libncurses5-dev libncursesw5-dev \
+            libffi-dev libssl-dev \
+            python3-pip python3-setuptools
 
-      # ── Qt via aqtinstall (predictable paths: .qt/{version}/{arch}) ──────────
-      - name: Cache Qt ${{ env.QT_VERSION }}
-        id: cache-qt
+      - name: Install Buildozer and Cython
+        run: |
+          pip install --upgrade pip
+          pip install "buildozer>=1.5" "cython<3.0"
+
+      - name: Generate buildozer.spec from config.json
+        run: python3 generate_spec.py
+
+      - name: Cache Buildozer global directory
         uses: actions/cache@v4
         with:
-          path: ${{ env.QT_BASE_DIR }}
-          key: qt-${{ env.QT_VERSION }}-linux-android-arm64
+          path: ~/.buildozer
+          key: buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: buildozer-global-${{ runner.os }}-
 
-      - name: Install Qt with aqtinstall
-        if: steps.cache-qt.outputs.cache-hit != 'true'
+      - name: Cache Buildozer project directory
+        uses: actions/cache@v4
+        with:
+          path: .buildozer
+          key: buildozer-project-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
+          restore-keys: buildozer-project-${{ runner.os }}-
+
+      - name: Build APK (debug)
+        env:
+          JAVA_HOME: /usr/lib/jvm/temurin-17-amd64
         run: |
-          pip install aqtinstall
-          mkdir -p "${{ env.QT_BASE_DIR }}"
-          # Android arm64 — qtwebview is Android/iOS only
-          python3 -m aqt install-qt linux android ${{ env.QT_VERSION }} android_arm64_v8a \
-            -m qtwebview \
-            -O "${{ env.QT_BASE_DIR }}"
-          # Linux desktop host tools — arch for Qt 6.x is linux_gcc_64
-          python3 -m aqt install-qt linux desktop ${{ env.QT_VERSION }} linux_gcc_64 \
-            -O "${{ env.QT_BASE_DIR }}"
+          buildozer -v android debug 2>&1 | tee build.log
+          echo "=== Build finished ==="
+          find . -name "*.apk" | head -5
 
-      # ── PySide6 (runtime for deploy tool + wheel files for bundling) ─────────
-      # pyside6-android-deploy requires a virtualenv (prompts interactively otherwise)
-      - name: Create virtualenv and install PySide6
-        run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install \
-            "PySide6==${{ env.PYSIDE_VERSION }}" \
-            "shiboken6==${{ env.PYSIDE_VERSION }}"
-
-      - name: Download PySide6 wheel files for bundling
-        id: wheels
-        run: |
-          mkdir -p ./wheels
-          pip download "PySide6==${{ env.PYSIDE_VERSION }}" \
-            --no-deps --only-binary=:all: \
-            -d ./wheels
-          pip download "shiboken6==${{ env.PYSIDE_VERSION }}" \
-            --no-deps --only-binary=:all: \
-            -d ./wheels
-          PYSIDE_WHEEL=$(ls ./wheels/PySide6-*.whl | head -1)
-          SHIBOKEN_WHEEL=$(ls ./wheels/shiboken6-*.whl | head -1)
-          echo "pyside=$PYSIDE_WHEEL" >> $GITHUB_OUTPUT
-          echo "shiboken=$SHIBOKEN_WHEEL" >> $GITHUB_OUTPUT
-          echo "PySide6 wheel: $PYSIDE_WHEEL"
-          echo "shiboken6 wheel: $SHIBOKEN_WHEEL"
-
-      # ── Read app metadata from config.json ───────────────────────────────────
-      - name: Read config.json
+      - name: Read app metadata
         id: config
         run: |
           echo "app_name=$(python3 -c "import json; c=json.load(open('config.json')); print(c['app_name'])")" >> $GITHUB_OUTPUT
-          echo "package=$(python3 -c "import json; c=json.load(open('config.json')); print(c['package_name'])")" >> $GITHUB_OUTPUT
           echo "version=$(python3 -c "import json; c=json.load(open('config.json')); print(c['version'])")" >> $GITHUB_OUTPUT
-
-      # ── Generate spec file + run pyside6-android-deploy inside venv ──────────
-      - name: Build APK
-        env:
-          ANDROID_NDK_ROOT: "${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.ANDROID_NDK_VERSION }}"
-          QT_BASE_DIR: "${{ env.QT_BASE_DIR }}"
-          QT_VERSION: "${{ env.QT_VERSION }}"
-          PYSIDE_WHEEL: "${{ steps.wheels.outputs.pyside }}"
-          SHIBOKEN_WHEEL: "${{ steps.wheels.outputs.shiboken }}"
-          ANDROID_ARCH: "${{ env.ANDROID_ARCH }}"
-          ANDROID_API_LEVEL: "${{ env.ANDROID_API_LEVEL }}"
-        run: |
-          source .venv/bin/activate
-          python3 build_android.py
-
-      # ── Sign & upload ─────────────────────────────────────────────────────────
-      - name: Locate APK
-        id: apk
-        run: |
-          APK=$(find . -name "*.apk" ! -name "*signed*" | head -1)
-          echo "path=${APK}" >> $GITHUB_OUTPUT
-          echo "Found: ${APK}"
-
-      - name: Sign APK (debug keystore)
-        run: |
-          keytool -genkey -v \
-            -keystore debug.keystore \
-            -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass android -keypass android \
-            -dname "CN=AppWrapper Debug, O=AppWrapper, C=DE"
-
-          "${{ env.ANDROID_SDK_ROOT }}/build-tools/${{ env.ANDROID_API_LEVEL }}.0.0/apksigner" sign \
-            --ks debug.keystore \
-            --ks-key-alias androiddebugkey \
-            --ks-pass pass:android \
-            --key-pass pass:android \
-            --out appwrapper-signed.apk \
-            "${{ steps.apk.outputs.path }}"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: appwrapper-apk-${{ github.sha }}
-          path: appwrapper-signed.apk
+          path: bin/*.apk
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.sha }}
+          path: build.log
+          retention-days: 7
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: appwrapper-signed.apk
+          files: bin/*.apk
           name: "AppWrapper ${{ github.ref_name }}"
           body: |
             ## AppWrapper ${{ github.ref_name }}
 
-            Android APK – automatisch gebaut via GitHub Actions.
+            Android APK – automatisch gebaut via GitHub Actions / Buildozer.
 
             **Konfiguration:**
             - App: ${{ steps.config.outputs.app_name }}
-            - Paket: ${{ steps.config.outputs.package }}
             - Version: ${{ steps.config.outputs.version }}
 
-            **Installation:** APK herunterladen → auf Android-Gerät öffnen
-            (Einstellungen → Installation unbekannter Apps erlauben).
+            **Installation:** APK herunterladen → auf Android öffnen
+            (Einstellungen → Unbekannte Apps → Installation erlauben).

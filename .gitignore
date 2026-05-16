@@ -11,15 +11,13 @@ build/
 venv/
 *.egg
 
-# PySide6 / Qt Android deploy
+# Buildozer
 .buildozer/
+buildozer.spec
+
+# Android build artifacts
 .gradle/
-android/.gradle/
-android/build/
-android/app/build/
-pysidedeploy.spec
 *.keystore
-!debug.keystore
 
 # APK outputs (not committed, available as CI artifacts)
 *.apk
