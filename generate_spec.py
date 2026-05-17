@@ -39,6 +39,7 @@ android.archs = arm64-v8a
 android.allow_backup = False
 android.enable_androidx = True
 android.release_artifact = apk
+android.debug = False
 
 [buildozer]
 log_level = 2
