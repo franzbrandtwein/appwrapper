@@ -31,8 +31,6 @@ requirements = python3==3.11.5,kivy==2.3.0,android,jnius
 orientation = {orientation}
 fullscreen = {fullscreen}
 p4a.branch = v2024.01.21
-
-[android]
 android.permissions = INTERNET,ACCESS_NETWORK_STATE
 android.api = 35
 android.minapi = 24
