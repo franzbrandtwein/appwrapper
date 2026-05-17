@@ -27,7 +27,7 @@ package.domain = {pkg_domain}
 version = {version}
 source.dir = .
 source.include_exts = py,json
-requirements = python3,kivy==2.3.0,android,jnius
+requirements = python3==3.11.15,kivy==2.3.0,android,jnius
 orientation = {orientation}
 fullscreen = {fullscreen}
 
