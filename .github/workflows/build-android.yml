@@ -58,6 +58,13 @@ jobs:
       # Python 3.14 artifacts (from the runner's system Python 3.14.2) caused
       # API incompatibilities with Kivy 2.3.0 C files targeting Python 3.11.
 
+      # Delete the cached p4a clone so Buildozer always re-clones at the
+      # pinned version (p4a.branch = v2024.01.21). Without this, the fallback
+      # restore-key pulls in an old p4a-master clone (hostpython3 = 3.14.2)
+      # which conflicts with our python3==3.11.5 requirement.
+      - name: Clear cached p4a clone (force re-clone at pinned version)
+        run: rm -rf ~/.buildozer/android/platform/python-for-android
+
       # AFTER cache restore: ensure SDK is present with sdkmanager binary AND
       # license files pre-accepted so Buildozer's sdkmanager never prompts.
       #
