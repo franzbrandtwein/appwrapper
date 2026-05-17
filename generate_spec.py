@@ -27,7 +27,7 @@ package.domain = {pkg_domain}
 version = {version}
 source.dir = .
 source.include_exts = py,json
-requirements = python3==3.11.15,kivy==2.3.0,android,jnius
+requirements = python3==3.11.5,kivy==2.3.0,android,jnius
 orientation = {orientation}
 fullscreen = {fullscreen}
 
@@ -44,13 +44,10 @@ android.release_artifact = apk
 [buildozer]
 log_level = 2
 warn_on_root = 0
+p4a.branch = v2024.01.21
 """
     Path("buildozer.spec").write_text(spec)
     print(f"buildozer.spec generated for: {app_name} ({pkg})")
-
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":
